@@ -39,7 +39,7 @@ char hexaKeys[ROWS][COLS] = {
 };
 
 byte rowPins[ROWS] = {8, 7, 6, 5};
-byte colPins[COLS] = {4, 2, A3};
+byte colPins[COLS] = {4, A3, 2};
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
@@ -57,7 +57,8 @@ char authorizedRFIDCards[authorizedRFIDCardsNumber][12] = {"D6 FF F9 48"};
 
 Servo servo;
 int servoPin = A5;
-int servoLockAngle = 0;
+//int servoLockAngle = 0;
+int servoLockAngle = 180;
 int servoOpenAngle = 90;
 
 
@@ -68,24 +69,24 @@ bool RFIDLock = false;
 float RFIDStartTime = 0;
 float RFIDDelay = 1 * 1000;
 
-// Password must be entered in 10 seconds after placeing correct RFID tag
+// Password must be entered in 10 seconds after placing correct RFID tag
 bool passwordInputAllowed = false;
 float passwordInputStartTime = 0;
 float passwordInputPeriod = 10 * 1000;
 
 // Automatically close the lock after 10 seconds
-bool lockAutoCloseActive = false;
-float lockAutoCloseStartTime = 0;
-float lockAutoCloseDelay = 10 * 1000;
+ bool lockAutoCloseActive = false;
+ float lockAutoCloseStartTime = 0;
+ float lockAutoCloseDelay = 10 * 1000;
 
 
 // Block lock after 3 sequential failed attepts
-bool securityBlockActive = false;  //block for some time after series of failed attempts
-float securityBlockPeriod = 20 * 1000;
-float securityBlockStartTime = 0;
+ bool securityBlockActive = false; 
+ float securityBlockPeriod = 20 * 1000;
+ float securityBlockStartTime = 0;
 
-int failedAttemptsSequence = 0;
-int failedAttemptsToBlock = 3;
+ int failedAttemptsSequence = 0;
+ int failedAttemptsToBlock = 3;
 
 
 // Turn led off for a short time when a key is pressed or rfid tag is read
@@ -118,7 +119,7 @@ bool lockOpenStatus = false;  // status of lock
 
 
 void setup() {
-  //Serial.begin(9600);
+ //Serial.begin(9600);
   pinMode(ledPin, OUTPUT);
 
   SPI.begin();
@@ -141,7 +142,6 @@ void loop() {
       RFIDStartTime = millis();
       RFIDLock = true;
       RFIDReadFlag = true;
-      //Serial.println("The lock was unlocked by using an authorized RFID tag");
     }
     if (!securityBlockActive) {
       if (!RFIDLock and !attemptOver and !lockOpenStatus and !passwordInputAllowed) {
@@ -149,21 +149,17 @@ void loop() {
         RFIDStartTime = millis();
         RFIDLock = true;
         if (checkRFIDtag()) {
-          //Serial.println("CORRECT RFID TAG");
           correctRFIDTag = true;
           attemptOver = false;
           passwordInputStartTime = millis();
           passwordInputAllowed = true;
-          //Serial.println("Password input is now allowed for " + String(int(passwordInputPeriod / 1000)) + " seconds");
         } else {
-          //Serial.println("INCORRECT RFID TAG");
           correctRFIDTag = false;
           attemptOver = true;
         }
       }
     } else {  //IF THE LOCK IS BLOCKED
-      float blockTimeRemained = (securityBlockPeriod - (millis() - securityBlockStartTime)) / 1000;
-      //Serial.println("Lock is blocked for security reasons for " + String(blockTimeRemained) + " more seconds");
+      //float blockTimeRemained = (securityBlockPeriod - (millis() - securityBlockStartTime)) / 1000;
     }
   }
 
@@ -179,34 +175,22 @@ void loop() {
   if (keyPressed) {
     keyPressedFlag = true;
     // IF KEY IS NOT BLOCKED
+    //Serial.println(keyPressed);
     if (!securityBlockActive) {
       if (passwordInputAllowed) {
-        //Serial.println(keyPressed);
-        //inputData[inputCount] = keyPressed;
-        //inputCount++;
         inputSymbol(keyPressed);
-      } else {
-        //Serial.println("Password input is blocked until the correct RFID tag is placed on the lock");
       }
-    } else {  //IF THE LOCK IS BLOCKED
-      float blockTimeRemained = (securityBlockPeriod - (millis() - securityBlockStartTime)) / 1000;
-      //Serial.println("Lock is blocked for sequrity reasons for " + String(blockTimeRemained) + " more seconds");
     }
   }
-
-
-
+  
   // CHECK PASSWORD
   if (isPasswordInputted()) {
     if (passwordInputAllowed) {
       if (checkPassword()) {
-        //Serial.println("Correct password");
         correctPassword = true;
       } else {
-        //Serial.println("Wrong password");
         correctPassword = false;
       }
-      //passwordInputStartTime = millis();
       attemptOver = true;
     } else {
       clearData();
@@ -216,7 +200,6 @@ void loop() {
 
   if (passwordInputAllowed and millis() - passwordInputStartTime > passwordInputPeriod) {
     passwordInputAllowed = false;
-    //Serial.println("Password input is now blocked");
   }
 
   // If input attempt is over
@@ -234,7 +217,6 @@ void loop() {
     correctPassword = false;
     attemptOver = false;
     passwordInputAllowed = false;
-    //Serial.println("Failed attempts sequence = " + String(failedAttemptsSequence));
   }
 
   if (!lockOpenedFlag and lockOpenStatus) {
@@ -246,7 +228,6 @@ void loop() {
 
   if (lockAutoCloseActive and millis() - lockAutoCloseStartTime > lockAutoCloseDelay) {
     lockAutoCloseActive = false;
-    //Serial.println("The lock was automatically closed");
     closeLock();
   }
 
@@ -258,13 +239,10 @@ void loop() {
     securityBlockActive = true;
     failedAttemptsSequence = 0;
     securityBlockStartTime = millis();
-    //Serial.println(securityBlockPeriod);
-    //Serial.println("Too many failed attempts. The lock is blocked for " + String(securityBlockPeriod / 1000) + " seconds.");
   }
 
   if (securityBlockActive and millis() - securityBlockStartTime > securityBlockPeriod) {
     securityBlockActive = false;
-    //Serial.println("The lock is unlocked");
   }
 
 
@@ -272,72 +250,63 @@ void loop() {
   audioSignalDaemon(1);
   lockIndicatorDaemon();
   ledDaemon();
-  //TODO Signal thet the lock will be closed after 10 seconds (blink the led)
 }
 
 
-void openLock() {
-  //Serial.println("LOCK IS OPEN");
-  lockOpenedFlag = true;
-  servo.write(servoOpenAngle); 
-}
+ void openLock() {
+   lockOpenedFlag = true;
+   servo.write(servoOpenAngle); 
+ }
 
-void closeLock() {
-  //Serial.println("LOCK IS CLOSED");
-  lockOpenedFlag = false;
-  lockOpenStatus = false;
-  servo.write(servoLockAngle); 
-}
+ void closeLock() {
+   lockOpenedFlag = false;
+   lockOpenStatus = false;
+   servo.write(servoLockAngle); 
+ }
 
-void inputSymbol(char symbol) {
-  //Serial.println(symbol);
-  inputData[inputCount] = symbol;
-  inputCount++;
-}
+ void inputSymbol(char symbol) {
+   inputData[inputCount] = symbol;
+   inputCount++;
+ }
 
-bool isPasswordInputted() {
-  if (inputCount == passwordLength - 1) {
-    return true;
-  } else {
-    return false;
-  }
-}
+ bool isPasswordInputted() {
+   if (inputCount == passwordLength - 1) {
+     return true;
+   } else {
+     return false;
+   }
+ }
 
-bool checkPassword() {
-  bool isCorrectPassword = false;
-  if (!strcmp(inputData, PASSWORD)) {
-    isCorrectPassword = true;
-  }
-  clearData();
-  return isCorrectPassword;
-}
+ bool checkPassword() {
+   bool isCorrectPassword = false;
+   if (!strcmp(inputData, PASSWORD)) {
+     isCorrectPassword = true;
+   }
+   clearData();
+   return isCorrectPassword;
+ }
 
 
 // Return true if an authorized rfid tag is placed,
 // otherwise return false
-bool checkRFIDtag() {
-  //Serial.print("UID tag :");
-  String content = "";
-  byte letter;
-  for (byte i = 0; i < mfrc522.uid.size; i++)
-  {
-    //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    //Serial.print(mfrc522.uid.uidByte[i], HEX);
+ bool checkRFIDtag() {
+   String content = "";
+   byte letter;
+   for (byte i = 0; i < mfrc522.uid.size; i++)
+   {
     content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
     content.concat(String(mfrc522.uid.uidByte[i], HEX));
-  }
-  //Serial.println();
-  content.toUpperCase();
-
-  for (int i = 0; i < authorizedRFIDCardsNumber; i++) {
-    if (content.substring(1) == authorizedRFIDCards[i])
-    {
-      return true;
-    } else {
-      return false;
-    }
-  }
-}
+   }
+   content.toUpperCase();
+   bool isAuthorized = false;
+   for (int i = 0; i < authorizedRFIDCardsNumber; i++) {
+     if (content.substring(1) == authorizedRFIDCards[i])
+     {
+       isAuthorized = true;
+     }
+   }
+   return isAuthorized;
+ }
 
 void correctSignal() {
   //Serial.println("Correct signal");
@@ -351,14 +320,14 @@ void wrongSignal() {
 
 // DAEMONS (indicators controllers)
 
-void lockIndicatorDaemon() {
-  // The LED is active when the lock is closed
-  if (lockOpenStatus) {
-    digitalWrite(ledPin, LOW);
-  } else {
-    digitalWrite(ledPin, HIGH);
-  }
-}
+ void lockIndicatorDaemon() {
+   // The LED is active when the lock is closed
+   if (lockOpenStatus) {
+     digitalWrite(ledPin, LOW);
+   } else {
+     digitalWrite(ledPin, HIGH);
+   }
+ }
 
 // activate wrong signal on buzzer
 void audioSignalDaemon(int mode) {
@@ -455,8 +424,6 @@ void ledDaemon(){
     int timeBeforeLock = lockAutoCloseDelay - (millis() - lockAutoCloseStartTime);
     int period = lockIsClosingSignalOnTime + lockIsClosingSignalOffTime;
     if (timeBeforeLock < lockIsClosingSignalRemainedTime){
-    //Serial.println(timeBeforeLock);
-    //Serial.println(">>" + (lockIsClosingSignalRemainedTime - timeBeforeLock) % period);
       if ((lockIsClosingSignalRemainedTime - timeBeforeLock) % period <lockIsClosingSignalOnTime){
         digitalWrite(ledPin, HIGH);
       } else {
